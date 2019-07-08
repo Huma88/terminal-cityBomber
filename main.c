@@ -13,6 +13,8 @@
 #define _SCREENHEIGHT 15
 #define _FRAMERATE 6
 
+char _BACKGROUNDICON = ' ';
+
 typedef struct city {
     int width;
     int height;
@@ -40,9 +42,12 @@ typedef struct plane {
     bomb planebombs;
 } plane;
 
+void play(city newAlen, plane bomber);
 void draw(city newAlen, plane bomber);
+void dropBomb(plane *bomber);
 void sleep(int ms);
 void clear();
+int sumArr(int length, int arr[length]);
 
 void main() {
     srand(time(NULL));   // Initialization, should only be called once.
@@ -69,49 +74,27 @@ void main() {
         bomber.planebombs.location[i] = -1;
     }
     //dibujamos
-    draw(newAlen, bomber);
+    play(newAlen, bomber);
 }
 
-void draw(city newAlen, plane bomber) {
-    int gameover = 0;
-    int i,j;
+void play(city newAlen, plane bomber) {
+    int i,gameover = 0;
 	while(!gameover) {
         //limpiamos pantalla
         clear();
         //printamos pantalla
-        for(i = _SCREENHEIGHT; i > -1; i--) {
-            for(j = 0; j < _SCREENWIDTH; j++) {
-                if (newAlen.buildings[j] >= i) {
-                    printf("%c",newAlen.icon);
-                } else if (bomber.planebombs.location[j] == i){
-                    printf("%c",bomber.planebombs.icon);
-                } else if (bomber.pos.x == j && bomber.pos.y == i) {
-                    printf("%c",bomber.icon);
-                } else {
-                    printf(".");
-                }
-            }
-            printf("\n");
-        }
-        //comprobamos si se ha soltado bomba
-        if(bomber.bombNumber > 0) {
-            if(kbhit()) {
-                char key = getch();
-                if(key == ' ') {
-                    bomber.planebombs.location[bomber.pos.x] = bomber.pos.y;
-                    bomber.bombNumber--;
-                }
-            }
-        }
-        //limpiamos el buffer para que solo se admita una pulsacion por frame y no se acumule el lanzamiento de bombas
+        draw(newAlen, bomber);
+        //drop bomb
+        dropBomb(&bomber);
+        //buffer cleaning to allow only 1 bomb per frame
         fflush(stdin);
-        //movemos bomber
+        //move bomber
         bomber.pos.x++;
         if(bomber.pos.x > _SCREENWIDTH) {
             bomber.pos.x = 0;
             bomber.pos.y--;
         }
-        //movemos bombas
+        //move bombs
         for(i = 0; i < _SCREENWIDTH;i++) {
             if(bomber.planebombs.location[i] != -1) {
                 bomber.planebombs.location[i]--;
@@ -125,21 +108,61 @@ void draw(city newAlen, plane bomber) {
                 }
             }
         }
+        //endgame condition
         if(bomber.pos.x < _SCREENWIDTH && newAlen.buildings[bomber.pos.x] >= bomber.pos.y) {
             gameover = 1;
+        } else if (sumArr(newAlen.width,newAlen.buildings) <= 0) {
+            gameover = 2;
         }
-        //sleepeamos para crear el frameRate
+        //framerate regulation
         sleep(1000/_FRAMERATE);
     }
     clear();
-    printf("YOU LOSE!\n");
+    //endgame
+    switch(gameover) {
+        case 1:
+            printf("GAME OVER!\n");
+        break;
+        case 2:
+            printf("YOU WIN!\n");
+        break;
+    }
+}
+
+void dropBomb(plane *bomber) {
+    if((*bomber).bombNumber > 0) {
+        if(kbhit()) {
+            char key = getch();
+            if(key == ' ') {
+                (*bomber).planebombs.location[(*bomber).pos.x] = (*bomber).pos.y;
+                (*bomber).bombNumber--;
+            }
+        }
+    }
+}
+
+void draw(city newAlen, plane bomber) {
+    for(int i = _SCREENHEIGHT; i > -1; i--) {
+        for(int j = 0; j < _SCREENWIDTH; j++) {
+            if (newAlen.buildings[j] >= i) {
+                printf("%c",newAlen.icon);
+            } else if (bomber.planebombs.location[j] == i){
+                printf("%c",bomber.planebombs.icon);
+            } else if (bomber.pos.x == j && bomber.pos.y == i) {
+                printf("%c",bomber.icon);
+            } else {
+                printf("%c",_BACKGROUNDICON);
+            }
+        }
+        printf("\n");
+    }
 }
 
 void sleep(int ms) {
     #ifdef _WIN32
         Sleep(ms);
     #else
-        usleep(ms*1000);  /* sleep for 100 milliSeconds */
+        usleep(ms*1000);  /* sleep for ms milliSeconds */
     #endif
 }
 
@@ -149,4 +172,12 @@ void clear() {
     #else
         system("clear");
     #endif
+}
+
+int sumArr(int length, int arr[length]) {
+    int total = 0; 
+    for(int i = 0; i < length; i++) {
+        total += arr[i];
+    }
+    return total;
 }
